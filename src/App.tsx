@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import  { useState } from 'react'
 import { ThemeProvider, createTheme, CssBaseline, Box, Container } from '@mui/material'
 import CompanyForm from './components/CompanyForm'
 // Define the type locally if the import isn't working
