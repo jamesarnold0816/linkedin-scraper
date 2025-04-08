@@ -98,7 +98,7 @@ export async function searchCompanyEmployees(companyName: string, region: Array<
 
         const queryParams = new URLSearchParams();
         queryParams.append('page', '1');
-        queryParams.append('per_page', '100');
+        queryParams.append('per_page', '200');
 
         // Add organization ID
         queryParams.append('organization_ids[]', company.id);
