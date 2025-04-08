@@ -1,49 +1,91 @@
-import  { useState } from 'react'
-import { ThemeProvider, createTheme, CssBaseline, Box, Container } from '@mui/material'
-import CompanyForm from './components/CompanyForm'
-// Define the type locally if the import isn't working
-type ThemeMode = 'light' | 'dark'
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Container, Navbar, Alert, Spinner } from 'react-bootstrap';
+import CompanyForm from './components/CompanyForm';
+import EmployeeList from './components/EmployeeList';
+import { fetchEmployees, EmployeeData } from './services/linkedinService';
 
-function App() {
-  const [mode, setMode] = useState<ThemeMode>('light')
-
-  const theme = createTheme({
-    palette: {
-      mode,
-      ...(mode === 'light'
-        ? {
-            primary: {
-              main: '#1976d2',
-            },
-            background: {
-              default: '#f5f5f5',
-            },
-          }
-        : {
-            primary: {
-              main: '#90caf9',
-            },
-            background: {
-              default: '#121212',
-            },
-          }),
-    },
-  })
-
-  const toggleTheme = () => {
-    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'))
-  }
-
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ minHeight: '100vh', py: 4 }}>
-        <Container maxWidth="md">
-          <CompanyForm onThemeToggle={toggleTheme} />
-        </Container>
-      </Box>
-    </ThemeProvider>
-  )
+interface CompanyEmployeeData {
+  companyUrl: string;
+  region: string[];
+  employees: EmployeeData[];
+  loading?: boolean;
+  error?: string;
 }
 
-export default App 
+function App() {
+  const [companyData, setCompanyData] = useState<CompanyEmployeeData[]>([]);
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const handleFormSubmit = async (companies: { url: string; region: string[]}[]) => {
+    setError('');
+    setIsLoading(true);
+
+    // Initialize company data with loading states
+    const initialCompanyData = companies.map(company => ({
+      companyUrl: company.url,
+      region: company.region,
+      employees: [],
+      loading: true
+    }));
+
+    setCompanyData(initialCompanyData);
+
+    try {
+      // Fetch employee data for each company and region pair
+      const fetchPromises = companies.map(async (company, index) => {
+        try {
+          const employees = await fetchEmployees(company.url, company.region);
+          return {
+            companyUrl: company.url,
+            region: company.region,
+            employees,
+            loading: false
+          };
+        } catch (err) {
+          console.error(`Error fetching data for company ${company.url} in region ${company.region}:`, err);
+          return {
+            companyUrl: company.url,
+            region: company.region,
+            employees: [],
+            loading: false,
+            error: `Failed to fetch employees: ${err instanceof Error ? err.message : 'Unknown error'}`
+          };
+        }
+      });
+
+      const updatedCompanyData = await Promise.all(fetchPromises);
+      setCompanyData(updatedCompanyData);
+    } catch (err) {
+      setError(`Error processing company data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="App">
+      <Navbar bg="dark" variant="dark" expand="lg">
+        <Container>
+          <Navbar.Brand href="#home">LinkedIn Company Scraper</Navbar.Brand>
+          {isLoading && (
+            <Spinner animation="border" variant="light" size="sm" className="ms-2" />
+          )}
+        </Container>
+      </Navbar>
+
+      <Container className="mt-3">
+        {error && <Alert variant="danger">{error}</Alert>}
+        
+        <CompanyForm onSubmit={handleFormSubmit} />
+        
+        {companyData.length > 0 && (
+          <EmployeeList companyData={companyData} />
+        )}
+      </Container>
+    </div>
+  );
+}
+
+export default App;
